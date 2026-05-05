@@ -1,0 +1,8 @@
+
+Welcome to FreeBSD livecd.
+
+This is a writable live system: the root filesystem is a gunion(8) overlay
+of a compressed read-only UFS (loaded into RAM at boot) plus a swap-backed
+writable upper layer. All changes you make are kept in RAM and discarded
+on reboot.
+
