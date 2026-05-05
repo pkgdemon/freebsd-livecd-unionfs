@@ -127,22 +127,20 @@ cat > "$WORK/rootfs/etc/fstab" <<'EOF'
 EOF
 
 #
-# 7. makefs UFS sized exactly to content (no headroom; the writable
-#    upper is tmpfs at boot, page-allocated on demand). mkuzip
-#    compresses; output goes into the cdroot.
+# 7. makefs UFS without an explicit -s. The writable upper is tmpfs at
+#    boot, so the lower UFS doesn't need user-visible headroom -- only
+#    enough room for UFS internal overhead (cylinder groups, inode
+#    tables, default ~8% minfree). makefs auto-computes that when -s
+#    is omitted; passing a tight -s trips its bsize rounding logic.
+#    mkuzip then compresses; output goes into the cdroot.
 #
 CONTENT_BYTES=$(du -sk "$WORK/rootfs" | awk '{print $1*1024}')
-# Round up to a 1 MiB boundary so makefs's bsize rounding doesn't push
-# the size past the requested max. makefs default bsize is 32 KiB; 1 MiB
-# is comfortably divisible by it and any plausible future change.
-LOWER_BYTES=$(( (CONTENT_BYTES + 1048575) / 1048576 * 1048576 ))
 echo "==> rootfs content = $CONTENT_BYTES bytes ($((CONTENT_BYTES / 1024 / 1024)) MiB)"
-echo "==> ufs lower size = $LOWER_BYTES bytes ($((LOWER_BYTES / 1024 / 1024)) MiB)"
 
-echo "==> makefs ffs"
+echo "==> makefs ffs (auto-sized)"
 makefs -t ffs -o version=2,label=ROOTFS \
-    -s "$LOWER_BYTES" \
     "$WORK/rootfs.ufs" "$WORK/rootfs"
+ls -lh "$WORK/rootfs.ufs"
 
 mkdir -p "$WORK/cdroot"
 case "$COMPRESS" in
