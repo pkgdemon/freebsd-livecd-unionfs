@@ -259,9 +259,32 @@ done
 
 cp "$ROOT/boot/loader.conf" "$WORK/cdroot/boot/loader.conf"
 
+# /boot/firmware on the cd9660 → symlink to /sysroot/boot/firmware
+# (where the unionfs mounts the rootfs.uzip layer at boot, with all
+# pkg-installed firmware files inside).
+#
+# Why: kernel-context vn_open in subr_firmware.c's try_binary_file()
+# does namei against the kernel's root namespace, which is the cd9660
+# mount — NOT the chroot the userspace processes see. So firmware files
+# in /boot/firmware/ from pkg are visible at /boot/firmware/ via chroot
+# but invisible to kernel-context firmware loading. Result: iwlwifi /
+# i915kms attach but firmware-load fails with "File size way too small!"
+# → no wlan0, no DRM acceleration.
+#
+# The symlink turns the kernel-namei lookup of /boot/firmware/foo.ucode
+# into a chain that follows through the /sysroot mount point into the
+# unionfs view, finds the file. Verified working on Lenovo (iwlwifi-8260)
+# in the freebsd-launchd port (commit 51e1b80 there).
+#
+# Costs ~0 bytes on the cd9660 — just a symlink. Avoids copying ~1GB
+# of firmware blobs into the cdroot. Rock Ridge extension on cd9660
+# preserves symlinks correctly.
+ln -sf /sysroot/boot/firmware "$WORK/cdroot/boot/firmware"
+
 echo "==> /boot on cd9660:"
 du -sh "$WORK/cdroot/boot" "$WORK/cdroot/boot/kernel" || true
 ls -la "$WORK/cdroot/boot/kernel/" || true
+ls -la "$WORK/cdroot/boot/firmware" || true
 
 #
 # 9. extract src.txz to expose FreeBSD's release scripts.
